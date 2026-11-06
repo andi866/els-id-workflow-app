@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+
+<title>ELS.ID Workflow</title>
+
+<!--
+  PEMBUNGKUS APLIKASI
+
+  Halaman ini isinya hampir kosong: tugasnya cuma memuat aplikasi
+  Apps Script di dalamnya, lalu memberi tahu HP bahwa ini aplikasi
+  yang bisa dipasang.
+
+  Yang didapat dari membungkus seperti ini:
+
+    - ikon sendiri di layar utama, bukan ikon Chrome
+    - tidak ada batang alamat dan tidak ada tulisan
+      "Aplikasi ini dibuat oleh pengguna Google Apps Script"
+    - terbuka seperti aplikasi biasa, bukan seperti situs
+
+  Yang TIDAK berubah: datanya tetap di Google, loginnya tetap sama,
+  dan setiap deploy baru langsung terpakai tanpa memasang ulang.
+-->
+
+<meta name="theme-color" content="#E8590C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ELS.ID">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+  :root { --brand: #E8590C }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  #app {
+    display: block;
+    border: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Layar muat, dibuat sama dengan yang di dalam aplikasinya */
+  #muat {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: #fff;
+    z-index: 10;
+    transition: opacity .25s ease;
+  }
+  #muat.pergi { opacity: 0; pointer-events: none }
+
+  .logo {
+    color: var(--brand);
+    background: #FFF1E8;
+    width: 92px; height: 92px;
+    border-radius: 26px;
+    display: grid;
+    place-content: center;
+  }
+
+  #muat b { font-size: 19px; font-weight: 800; color: #1A1D23 }
+  #muat span { color: #71798A; font-size: 13px }
+
+  .bar {
+    margin-top: 14px;
+    width: 168px; height: 4px;
+    border-radius: 99px;
+    background: #E4E7EC;
+    overflow: hidden;
+  }
+  .bar i {
+    display: block;
+    width: 42%; height: 100%;
+    border-radius: 99px;
+    background: var(--brand);
+    animation: geser 1s ease-in-out infinite;
+  }
+  @keyframes geser {
+    0%   { transform: translateX(-100%) }
+    100% { transform: translateX(240%) }
+  }
+
+  #gagal { display: none; text-align: center; padding: 0 28px }
+  #gagal a { color: var(--brand); font-weight: 700 }
+</style>
+</head>
+<body>
+
+<div id="muat">
+  <div class="logo">
+    <svg viewBox="0 0 48 48" width="58" height="58" aria-hidden="true">
+      <path d="M6 40V20l10-7 10 7v20" fill="none" stroke="currentColor"
+        stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M26 40V14l8-5 8 5v26" fill="none" stroke="currentColor"
+        stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M12 40v-9h8v9M32 40v-7h6v7" fill="none" stroke="currentColor"
+        stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M3 40h42" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <b>ELS.ID Purwokerto</b>
+  <span id="pesan">Menyiapkan layar…</span>
+  <div class="bar"><i></i></div>
+
+  <div id="gagal">
+    <p style="color:#71798A;font-size:13px;line-height:1.5">
+      Aplikasi lama dimuat. Pastikan HP tersambung internet, lalu tutup
+      dan buka lagi.
+    </p>
+    <a id="buka-langsung" href="#" target="_blank">Buka lewat browser</a>
+  </div>
+</div>
+
+<iframe id="app" title="ELS.ID Workflow"
+        allow="clipboard-write; autoplay"></iframe>
+
+<script>
+/* ============================================================
+   ALAMAT APLIKASI
+
+   Ganti baris di bawah dengan alamat /exec dari deploy Apps
+   Script. Ambil dari Apps Script → Deploy → Kelola deployment →
+   salin URL Web app.
+
+   Alamatnya berakhiran /exec, bukan /dev. Yang /dev hanya bisa
+   dibuka oleh pemilik skripnya sendiri.
+   ============================================================ */
+var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEXrcDPeIxRISCF34cnY95FDH7y-Syb2CLYxFSKJDds2/exec';
+
+(function () {
+  var bingkai = document.getElementById('app');
+  var muat = document.getElementById('muat');
+  var gagal = document.getElementById('gagal');
+  var pesan = document.getElementById('pesan');
+
+  document.getElementById('buka-langsung').href = ALAMAT;
+
+  if (ALAMAT.indexOf('GANTI_DENGAN') === 0) {
+    pesan.textContent = 'Alamat aplikasi belum diisi di index.html';
+    document.querySelector('.bar').style.display = 'none';
+    return;
+  }
+
+  bingkai.src = ALAMAT;
+
+  /*
+   * Layar muat disingkirkan setelah isinya tampil.
+   *
+   * Ditunggu sebentar setelah iframe selesai, karena aplikasinya
+   * masih menggambar isinya sendiri — kalau langsung disingkirkan,
+   * yang terlihat layar putih kosong sesaat.
+   */
+  bingkai.onload = function () {
+    setTimeout(function () {
+      muat.classList.add('pergi');
+      setTimeout(function () { muat.style.display = 'none'; }, 300);
+    }, 600);
+  };
+
+  // Kalau lebih dari 20 detik belum tampil juga, beri jalan keluar
+  setTimeout(function () {
+    if (muat.classList.contains('pergi')) return;
+    pesan.textContent = 'Aplikasi lama dimuat';
+    gagal.style.display = 'block';
+  }, 20000);
+
+  // Pendaftaran service worker — ini yang membuatnya bisa dipasang
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+
+</body>
+</html>
