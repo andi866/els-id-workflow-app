@@ -13,7 +13,13 @@
    aplikasi yang menolak terbuka saat internet mati.
    ============================================================ */
 
-var VERSI = 'els-workflow-v1';
+/*
+ * Nomor versi dinaikkan tiap pembungkusnya berubah.
+ *
+ * Tanpa itu, HP yang sudah memasang tetap memakai halaman lama
+ * yang tersimpan — dan perbaikan apa pun di sini tidak terasa.
+ */
+var VERSI = 'els-workflow-v2';
 var BERKAS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
