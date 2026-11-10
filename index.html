@@ -126,6 +126,7 @@
       Aplikasi lama dimuat. Pastikan HP tersambung internet, lalu tutup
       dan buka lagi.
     </p>
+    <p id="alasan" style="color:#C62828;font-size:12px;line-height:1.5"></p>
     <a id="buka-langsung" href="#" target="_blank">Buka lewat browser</a>
   </div>
 </div>
@@ -181,7 +182,57 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     if (muat.classList.contains('pergi')) return;
     pesan.textContent = 'Aplikasi lama dimuat';
     gagal.style.display = 'block';
+
+    /*
+     * Alasan yang paling mungkin, supaya tidak perlu menebak.
+     *
+     * Dua kesalahan ini yang hampir selalu terjadi saat pertama
+     * memasang, dan keduanya tidak kelihatan dari layar putih.
+     */
+    var a = document.getElementById('alasan');
+    if (ALAMAT.indexOf('/exec') < 0) {
+      a.textContent = 'Alamatnya tidak berakhiran /exec — yang /dev ' +
+        'hanya bisa dibuka pemilik skripnya.';
+    } else {
+      a.textContent = 'Kemungkinan deploy Apps Script belum disetel ' +
+        'Who has access: Anyone.';
+    }
   }, 20000);
+
+  /* ============================================================
+     PENITIPAN SIMPANAN
+
+     Aplikasi di dalam bingkai milik Google, pembungkus ini milik
+     kita. Bagi peramban keduanya dua tempat berbeda — dan Safari
+     di iPhone menghapus simpanan milik bingkai di dalam setiap
+     kali aplikasinya ditutup.
+
+     Itu sebabnya iPhone selalu diminta login ulang sementara
+     Android tidak.
+
+     Jadi simpanannya dititipkan ke sini. Yang dititipkan hanya
+     token login dan pengaturan kecil milik perangkat — tidak ada
+     data transaksi, tidak ada PIN.
+     ============================================================ */
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || !d.els) return;
+
+    try {
+      if (d.els === 'ambil') {
+        var isi = {};
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf('els_') === 0) isi[k] = localStorage.getItem(k);
+        }
+        bingkai.contentWindow.postMessage({ els: 'data', data: isi }, '*');
+        return;
+      }
+
+      if (d.els === 'simpan' && d.k) { localStorage.setItem(d.k, d.v); return; }
+      if (d.els === 'hapus' && d.k) { localStorage.removeItem(d.k); return; }
+    } catch (err) {}
+  });
 
   // Pendaftaran service worker — ini yang membuatnya bisa dipasang
   if ('serviceWorker' in navigator) {
