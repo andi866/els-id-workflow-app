@@ -434,35 +434,72 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     }
 
     if (d.els === 'sidik-daftar') {
-      navigator.credentials.create({
-        publicKey: {
-          challenge: acak(32),
-          rp: { name: 'ELS.ID Workflow' },
-          user: {
-            id: acak(16),
-            name: String(d.nama || 'pengguna'),
-            displayName: String(d.tampil || 'Pengguna')
-          },
-          pubKeyCredParams: [{ type: 'public-key', alg: -7 },
-                             { type: 'public-key', alg: -257 }],
-          authenticatorSelection: {
-            authenticatorAttachment: 'platform',
-            userVerification: 'required',
-            residentKey: 'preferred'
-          },
-          timeout: 60000,
-          attestation: 'none'
+      /*
+       * Dicoba dua kali, dari yang ketat ke yang longgar.
+       *
+       * Pengelola kunci di Android sering menolak pilihan ketat
+       * dengan pesan "unknown error" — biasanya karena kunci yang
+       * bisa dicari (residentKey) tidak didukung, atau pemeriksaan
+       * orangnya dipaksa padahal perangkatnya tidak siap.
+       *
+       * Pilihan longgar tetap aman untuk keperluan ini: yang kita
+       * butuhkan cuma jawaban "orangnya benar" dari perangkat,
+       * bukan kunci yang bisa dipakai lintas perangkat.
+       */
+      var dasar = {
+        challenge: acak(32),
+        rp: { name: 'ELS.ID Workflow' },
+        user: {
+          id: acak(16),
+          name: String(d.nama || 'pengguna'),
+          displayName: String(d.tampil || 'Pengguna')
+        },
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 },
+                           { type: 'public-key', alg: -257 }],
+        timeout: 60000,
+        attestation: 'none'
+      };
+
+      var ketat = Object.assign({}, dasar, {
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'discouraged',
+          requireResidentKey: false
         }
-      }).then(function (cred) {
+      });
+
+      var longgar = Object.assign({}, dasar, {
+        authenticatorSelection: { userVerification: 'preferred' }
+      });
+
+      var simpanHasil = function (cred) {
         if (!cred) throw new Error('Dibatalkan.');
         var id = btoa(String.fromCharCode.apply(null, new Uint8Array(cred.rawId)));
         localStorage.setItem('els_sidik', id);
         tutupSidik(box);
         balas('sidik-daftar-hasil', true, '', id);
-      }).catch(function (e) {
-        tutupSidik(box);
-        balas('sidik-daftar-hasil', false, String(e && e.message ? e.message : e));
-      });
+      };
+
+      navigator.credentials.create({ publicKey: ketat })
+        .then(simpanHasil)
+        .catch(function (e1) {
+          var p1 = String(e1 && e1.message ? e1.message : e1);
+
+          // Dibatalkan sendiri tidak perlu dicoba ulang
+          if (/NotAllowed|abort|cancel|Dibatalkan/i.test(p1)) {
+            tutupSidik(box);
+            return balas('sidik-daftar-hasil', false, 'Dibatalkan.');
+          }
+
+          return navigator.credentials.create({ publicKey: longgar })
+            .then(simpanHasil)
+            .catch(function (e2) {
+              var p2 = String(e2 && e2.message ? e2.message : e2);
+              tutupSidik(box);
+              balas('sidik-daftar-hasil', false, p2 || p1);
+            });
+        });
       return;
     }
 
@@ -473,20 +510,40 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
 
     var biner = Uint8Array.from(atob(simpan), function (c) { return c.charCodeAt(0); });
 
-    navigator.credentials.get({
-      publicKey: {
-        challenge: acak(32),
-        allowCredentials: [{ type: 'public-key', id: biner }],
-        userVerification: 'required',
-        timeout: 60000
-      }
-    }).then(function (hasil) {
+    var cobaBuka = function (verifikasi) {
+      return navigator.credentials.get({
+        publicKey: {
+          challenge: acak(32),
+          allowCredentials: [{ type: 'public-key', id: biner }],
+          userVerification: verifikasi,
+          timeout: 60000
+        }
+      });
+    };
+
+    cobaBuka('required').then(function (hasil) {
       if (!hasil) throw new Error('Dibatalkan.');
       tutupSidik(box);
       balas('sidik-minta-hasil', true);
-    }).catch(function (e) {
-      tutupSidik(box);
-      balas('sidik-minta-hasil', false, String(e && e.message ? e.message : e));
+    }).catch(function (e1) {
+      var p1 = String(e1 && e1.message ? e1.message : e1);
+
+      if (/NotAllowed|abort|cancel|Dibatalkan/i.test(p1)) {
+        tutupSidik(box);
+        return balas('sidik-minta-hasil', false, 'Dibatalkan.');
+      }
+
+      // Sama seperti saat mendaftar: dicoba sekali lagi dengan
+      // pilihan yang lebih longgar
+      cobaBuka('preferred').then(function (hasil2) {
+        if (!hasil2) throw new Error('Dibatalkan.');
+        tutupSidik(box);
+        balas('sidik-minta-hasil', true);
+      }).catch(function (e2) {
+        tutupSidik(box);
+        balas('sidik-minta-hasil', false,
+          String(e2 && e2.message ? e2.message : e2) || p1);
+      });
     });
   }
 
