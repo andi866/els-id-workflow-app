@@ -101,6 +101,56 @@
 
   #gagal { display: none; text-align: center; padding: 0 28px }
   #gagal a { color: var(--brand); font-weight: 700 }
+
+  /* Lapisan tanya sidik jari — muncul di atas aplikasinya */
+  #sidik-tanya {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(17, 23, 34, .45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .sidik-kotak {
+    background: #fff;
+    border-radius: 18px;
+    padding: 26px 22px 20px;
+    max-width: 320px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 24px 60px rgba(17, 23, 34, .3);
+  }
+
+  .sidik-kotak b { font-size: 17px; color: #1A1D23 }
+  .sidik-kotak span { font-size: 13px; color: #71798A; line-height: 1.5 }
+
+  .sidik-ok {
+    margin-top: 10px;
+    background: var(--brand);
+    color: #fff;
+    border: 0;
+    border-radius: 11px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .sidik-ok:disabled { opacity: .6 }
+
+  .sidik-batal {
+    background: none;
+    border: 0;
+    color: #71798A;
+    font-size: 13px;
+    padding: 6px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -256,7 +306,19 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
          lagi. Alamat halaman ini tidak pernah berganti.
          ---------------------------------------------------------- */
       if (d.els === 'sidik-daftar' || d.els === 'sidik-minta') {
-        tanganiSidik(d);
+        /*
+         * Harus ada ketukan di halaman INI dulu.
+         *
+         * Peramban hanya mengizinkan permintaan sidik jari kalau
+         * orangnya baru saja menyentuh halaman yang memintanya.
+         * Ketukan tadi terjadi di dalam bingkai — bagi peramban itu
+         * halaman lain, jadi permintaannya menggantung tanpa
+         * jawaban sampai waktunya habis.
+         *
+         * Jadi tombolnya dimunculkan di sini, dan ketukan pada
+         * tombol itulah yang menjalankannya.
+         */
+        tawarkanSidik(d);
         return;
       }
     } catch (err) {}
@@ -275,8 +337,45 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     } catch (e) {}
   }
 
-  function tanganiSidik(d) {
+  /** Lapisan bertombol, supaya ketukannya terjadi di halaman ini */
+  function tawarkanSidik(d) {
+    var daftar = d.els === 'sidik-daftar';
+    var lama = document.getElementById('sidik-tanya');
+    if (lama && lama.parentNode) lama.parentNode.removeChild(lama);
+
+    var box = document.createElement('div');
+    box.id = 'sidik-tanya';
+    box.innerHTML =
+      '<div class="sidik-kotak">' +
+        '<div style="font-size:34px">👆</div>' +
+        '<b>' + (daftar ? 'Nyalakan sidik jari' : 'Masuk dengan sidik jari') + '</b>' +
+        '<span>Ketuk tombol di bawah, lalu ikuti petunjuk perangkat Anda.</span>' +
+        '<button class="sidik-ok">' +
+          (daftar ? 'Lanjutkan' : 'Buka sekarang') + '</button>' +
+        '<button class="sidik-batal">Nanti saja</button>' +
+      '</div>';
+
+    document.body.appendChild(box);
+
+    box.querySelector('.sidik-ok').onclick = function () {
+      box.querySelector('.sidik-ok').textContent = 'Menunggu perangkat…';
+      box.querySelector('.sidik-ok').disabled = true;
+      tanganiSidik(d, box);
+    };
+
+    box.querySelector('.sidik-batal').onclick = function () {
+      tutupSidik(box);
+      balas(d.els + '-hasil', false, 'Dibatalkan.');
+    };
+  }
+
+  function tutupSidik(box) {
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+  }
+
+  function tanganiSidik(d, box) {
     if (!window.PublicKeyCredential || !navigator.credentials) {
+      tutupSidik(box);
       return balas(d.els + '-hasil', false, 'Perangkat ini tidak mendukung sidik jari.');
     }
 
@@ -304,8 +403,10 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
         if (!cred) throw new Error('Dibatalkan.');
         var id = btoa(String.fromCharCode.apply(null, new Uint8Array(cred.rawId)));
         localStorage.setItem('els_sidik', id);
+        tutupSidik(box);
         balas('sidik-daftar-hasil', true, '', id);
       }).catch(function (e) {
+        tutupSidik(box);
         balas('sidik-daftar-hasil', false, String(e && e.message ? e.message : e));
       });
       return;
@@ -327,8 +428,10 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
       }
     }).then(function (hasil) {
       if (!hasil) throw new Error('Dibatalkan.');
+      tutupSidik(box);
       balas('sidik-minta-hasil', true);
     }).catch(function (e) {
+      tutupSidik(box);
       balas('sidik-minta-hasil', false, String(e && e.message ? e.message : e));
     });
   }
