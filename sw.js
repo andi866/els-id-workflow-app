@@ -19,7 +19,7 @@
  * Tanpa itu, HP yang sudah memasang tetap memakai halaman lama
  * yang tersimpan — dan perbaikan apa pun di sini tidak terasa.
  */
-var VERSI = 'els-workflow-v2';
+var VERSI = 'els-workflow-v3';
 var BERKAS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {

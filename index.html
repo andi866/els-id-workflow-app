@@ -333,6 +333,27 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     });
   }
 
+  /*
+   * Simpanan dikirim ulang saat aplikasi kembali dibuka.
+   *
+   * Di iPhone, aplikasi yang lama ditinggalkan dimuat ulang dari
+   * awal saat dibuka kembali — tanpa sempat meminta simpanannya.
+   * Dikirim dari sini begitu halamannya terlihat lagi, jadi
+   * tokennya tetap sampai.
+   */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+
+    try {
+      var isi = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('els_') === 0) isi[k] = localStorage.getItem(k);
+      }
+      bingkai.contentWindow.postMessage({ els: 'data', data: isi }, '*');
+    } catch (err) {}
+  });
+
   // Pendaftaran service worker — ini yang membuatnya bisa dipasang
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
