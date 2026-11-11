@@ -19,7 +19,7 @@
  * Tanpa itu, HP yang sudah memasang tetap memakai halaman lama
  * yang tersimpan — dan perbaikan apa pun di sini tidak terasa.
  */
-var VERSI = 'els-workflow-v6';
+var VERSI = 'els-workflow-v7';
 
 /*
  * Halaman pembungkusnya TIDAK ikut disimpan.

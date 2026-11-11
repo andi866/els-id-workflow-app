@@ -299,6 +299,9 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     var d = e.data;
     if (!d || !d.els) return;
 
+    // Diingat supaya jawabannya sampai ke lapisan yang benar
+    penanya = e.source;
+
     try {
       if (d.els === 'ambil') {
         var isi = {};
@@ -306,7 +309,7 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
           var k = localStorage.key(i);
           if (k && k.indexOf('els_') === 0) isi[k] = localStorage.getItem(k);
         }
-        bingkai.contentWindow.postMessage({ els: 'data', data: isi }, '*');
+        (e.source || bingkai.contentWindow).postMessage({ els: 'data', data: isi }, '*');
         return;
       }
 
@@ -329,7 +332,7 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
          ---------------------------------------------------------- */
       /* Pemeriksaan cepat: pembungkus ini versi berapa */
       if (d.els === 'versi') {
-        bingkai.contentWindow.postMessage({ els: 'versi-hasil', v: 5 }, '*');
+        (e.source || bingkai.contentWindow).postMessage({ els: 'versi-hasil', v: 6 }, '*');
         return;
       }
 
@@ -343,7 +346,7 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
          * kotak sidik jari. Keduanya terlihat sama — menunggu.
          */
         try {
-          bingkai.contentWindow.postMessage({ els: 'sidik-ack' }, '*');
+          (e.source || bingkai.contentWindow).postMessage({ els: 'sidik-ack' }, '*');
         } catch (e2) {}
 
         /*
@@ -370,9 +373,20 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
     return a;
   }
 
+  /*
+   * Jawaban dikirim ke yang bertanya, bukan ke bingkai terluar.
+   *
+   * Aplikasinya berada dua lapis di dalam: pembungkus ini memuat
+   * bingkai Google, dan Google memuat bingkai aplikasinya sendiri.
+   * Mengirim ke bingkai terluar berarti jawabannya berhenti di
+   * tengah dan tidak pernah sampai.
+   */
+  var penanya = null;
+
   function balas(jenis, ok, pesan, id) {
+    var tujuan = penanya || (bingkai.contentWindow);
     try {
-      bingkai.contentWindow.postMessage(
+      tujuan.postMessage(
         { els: jenis, ok: !!ok, pesan: pesan || '', id: id || '' }, '*');
     } catch (e) {}
   }
@@ -493,7 +507,7 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
         var k = localStorage.key(i);
         if (k && k.indexOf('els_') === 0) isi[k] = localStorage.getItem(k);
       }
-      bingkai.contentWindow.postMessage({ els: 'data', data: isi }, '*');
+      (penanya || bingkai.contentWindow).postMessage({ els: 'data', data: isi }, '*');
     } catch (err) {}
   });
 
