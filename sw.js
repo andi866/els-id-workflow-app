@@ -19,8 +19,24 @@
  * Tanpa itu, HP yang sudah memasang tetap memakai halaman lama
  * yang tersimpan — dan perbaikan apa pun di sini tidak terasa.
  */
-var VERSI = 'els-workflow-v4';
-var BERKAS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+var VERSI = 'els-workflow-v6';
+
+/*
+ * Halaman pembungkusnya TIDAK ikut disimpan.
+ *
+ * Yang disimpan cuma ikon dan keterangan aplikasi — keduanya
+ * jarang berubah. Halamannya sendiri selalu diambil baru.
+ *
+ * Alasannya: tiap kali halaman itu diperbaiki, HP yang sudah
+ * memasang tetap memakai salinan lamanya sampai entah kapan. Yang
+ * terjadi kemarin persis itu — perbaikan sidik jari sudah
+ * diunggah, tapi yang jalan masih versi sebelumnya.
+ *
+ * Halaman ini kecil, jadi mengambilnya tiap kali hampir tidak
+ * terasa. Yang berat isi aplikasinya, dan itu memang tidak pernah
+ * disimpan di sini.
+ */
+var BERKAS = ['./manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -52,6 +68,22 @@ self.addEventListener('fetch', function (e) {
    * basi tersaji tanpa ada yang tahu.
    */
   if (url.origin !== self.location.origin) return;
+
+  /*
+   * Halaman pembungkus selalu diambil baru; sisanya boleh dari
+   * simpanan.
+   */
+  var halaman = e.request.mode === 'navigate' ||
+                /index\.html$|\/$/.test(url.pathname);
+
+  if (halaman) {
+    e.respondWith(
+      fetch(e.request).catch(function () {
+        return caches.match(e.request);
+      })
+    );
+    return;
+  }
 
   e.respondWith(
     caches.match(e.request).then(function (ada) {

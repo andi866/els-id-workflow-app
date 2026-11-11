@@ -221,6 +221,7 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
   }
 
   bingkai.src = ALAMAT;
+  bingkai.addEventListener('load', function () { bingkai.dataset.siap = '1'; });
 
   /*
    * Layar muat disingkirkan setelah isinya tampil.
@@ -229,18 +230,39 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
    * masih menggambar isinya sendiri — kalau langsung disingkirkan,
    * yang terlihat layar putih kosong sesaat.
    */
+  function singkirkanMuat() {
+    if (muat.classList.contains('pergi')) return;
+    muat.classList.add('pergi');
+    setTimeout(function () { muat.style.display = 'none'; }, 250);
+  }
+
   bingkai.onload = function () {
-    setTimeout(function () {
-      muat.classList.add('pergi');
-      setTimeout(function () { muat.style.display = 'none'; }, 300);
-    }, 600);
+    /*
+     * Jeda dipendekkan jadi seperempat detik.
+     *
+     * Jeda ini cuma menutupi kedipan saat aplikasinya menggambar
+     * isi pertamanya. Lebih dari itu, yang terjadi orang menatap
+     * layar yang sebenarnya sudah siap.
+     */
+    setTimeout(singkirkanMuat, 250);
   };
+
+  /*
+   * Paling lama tiga detik, apa pun yang terjadi.
+   *
+   * Kalau sampai segitu belum tampil juga, lebih baik aplikasinya
+   * yang terlihat — walau masih setengah jadi — daripada layar
+   * muat yang tidak memberi tahu apa-apa.
+   */
+  setTimeout(singkirkanMuat, 3000);
 
   // Kalau lebih dari 20 detik belum tampil juga, beri jalan keluar
   setTimeout(function () {
-    if (muat.classList.contains('pergi')) return;
+    if (bingkai.dataset.siap === '1') return;
     pesan.textContent = 'Aplikasi lama dimuat';
     gagal.style.display = 'block';
+    muat.classList.remove('pergi');
+    muat.style.display = 'flex';
 
     /*
      * Alasan yang paling mungkin, supaya tidak perlu menebak.
@@ -305,7 +327,25 @@ var ALAMAT = 'https://script.google.com/macros/s/AKfycbztPv_SAjUrrTHLwBCIUJ3aYEX
          begitu berganti, kunci yang sudah terdaftar tidak dikenali
          lagi. Alamat halaman ini tidak pernah berganti.
          ---------------------------------------------------------- */
+      /* Pemeriksaan cepat: pembungkus ini versi berapa */
+      if (d.els === 'versi') {
+        bingkai.contentWindow.postMessage({ els: 'versi-hasil', v: 5 }, '*');
+        return;
+      }
+
       if (d.els === 'sidik-daftar' || d.els === 'sidik-minta') {
+        /*
+         * Diakui dulu bahwa permintaannya sampai.
+         *
+         * Tanpa ini aplikasi di dalam tidak bisa membedakan dua
+         * keadaan: pembungkusnya versi lama yang tidak mengenali
+         * permintaan ini, atau orangnya yang masih memandangi
+         * kotak sidik jari. Keduanya terlihat sama — menunggu.
+         */
+        try {
+          bingkai.contentWindow.postMessage({ els: 'sidik-ack' }, '*');
+        } catch (e2) {}
+
         /*
          * Harus ada ketukan di halaman INI dulu.
          *
